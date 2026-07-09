@@ -110,7 +110,7 @@ app.post('/api/upload', authMiddleware, upload.single('video'), (req, res) => {
     const history = getHistory();
     history.unshift({
       id: fileId,
-      title: `Vidéo #${fileId.substring(0, 6)}`,
+      title: `Video #${fileId.substring(0, 6)}`,
       date: new Date().toISOString(),
       duration: duration || 0
     });

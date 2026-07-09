@@ -57,20 +57,18 @@ async function startRecording() {
   try {
     const includeWebcam = webcamToggle.checked;
 
-    // 1. Demander l'écran
     displayStream = await navigator.mediaDevices.getDisplayMedia({
       video: { cursor: "always" },
-      audio: true // Audio système (optionnel selon OS)
+      audio: true
     });
 
-    // 2. Demander Micro + Webcam (si cochée)
     try {
       voiceStream = await navigator.mediaDevices.getUserMedia({ 
         audio: true,
         video: includeWebcam ? { facingMode: "user" } : false
       });
     } catch (e) {
-      console.warn("Media non disponible ou refusé.", e);
+      console.warn("Media not available or denied.", e);
     }
 
     screenVideo.srcObject = displayStream;
@@ -78,7 +76,6 @@ async function startRecording() {
       webcamVideo.srcObject = new MediaStream([voiceStream.getVideoTracks()[0]]);
     }
 
-    // Attendre que la vidéo de l'écran soit chargée pour fixer la taille du canvas
     await new Promise(resolve => {
       screenVideo.onloadedmetadata = () => {
         composeCanvas.width = screenVideo.videoWidth;
@@ -87,13 +84,10 @@ async function startRecording() {
       };
     });
 
-    // Boucle de dessin
     drawCanvas();
 
-    // 3. Capturer le flux du Canvas (30 fps)
     finalStream = composeCanvas.captureStream(30);
 
-    // 4. Ajouter les pistes audio au flux final
     if (voiceStream) {
       voiceStream.getAudioTracks().forEach(track => finalStream.addTrack(track));
     }
@@ -101,10 +95,8 @@ async function startRecording() {
       displayStream.getAudioTracks().forEach(track => finalStream.addTrack(track));
     }
 
-    // Gestion de l'arrêt natif du navigateur
     displayStream.getVideoTracks()[0].onended = () => stopRecording();
 
-    // 5. Initialiser MediaRecorder
     const options = { mimeType: 'video/webm; codecs=vp8,opus' };
     mediaRecorder = new MediaRecorder(finalStream, options);
 
@@ -116,7 +108,6 @@ async function startRecording() {
       currentBlob = new Blob(recordedChunks, { type: 'video/webm' });
       showPreview();
       
-      // Nettoyage complet
       cancelAnimationFrame(animationFrameId);
       if (displayStream) displayStream.getTracks().forEach(t => t.stop());
       if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
@@ -141,45 +132,41 @@ async function startRecording() {
 
   } catch (err) {
     console.error("Error starting recording:", err);
-    alert("Impossible de démarrer l'enregistrement. Vérifiez vos permissions.");
+    alert("Unable to start recording. Please check permissions.");
   }
 }
 
 function drawCanvas() {
   if (screenVideo.videoWidth === 0) return;
 
-  // Dessiner l'écran en fond
   ctx.drawImage(screenVideo, 0, 0, composeCanvas.width, composeCanvas.height);
 
-  // Si webcam active, la dessiner en rond
   if (webcamToggle.checked && webcamVideo.videoWidth > 0) {
     const canvasW = composeCanvas.width;
     const canvasH = composeCanvas.height;
     
-    // Taille du médaillon (par exemple 15% de la largeur)
     const radius = Math.max(canvasW * 0.08, 100); 
-    const margin = 30; // Marge depuis le bord
-    const cx = margin + radius; // Centre X
-    const cy = canvasH - margin - radius; // Centre Y en bas à gauche
+    const margin = 30; 
+    const cx = margin + radius; 
+    const cy = canvasH - margin - radius; 
 
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
     ctx.closePath();
-    ctx.clip(); // Créer le masque circulaire
+    ctx.clip();
 
-    // Dessiner la webcam (centrée et rognée pour couvrir le cercle)
     const camW = webcamVideo.videoWidth;
     const camH = webcamVideo.videoHeight;
     const camRatio = camW / camH;
     
     let drawW, drawH, drawX, drawY;
-    if (camRatio > 1) { // Paysage
+    if (camRatio > 1) { 
       drawH = radius * 2;
       drawW = drawH * camRatio;
       drawX = cx - drawW / 2;
       drawY = cy - drawH / 2;
-    } else { // Portrait
+    } else { 
       drawW = radius * 2;
       drawH = drawW / camRatio;
       drawX = cx - drawW / 2;
@@ -188,7 +175,6 @@ function drawCanvas() {
 
     ctx.drawImage(webcamVideo, drawX, drawY, drawW, drawH);
     
-    // Ajouter une jolie bordure autour du médaillon
     ctx.lineWidth = 4;
     ctx.strokeStyle = "white";
     ctx.stroke();
@@ -283,15 +269,11 @@ retryBtn.addEventListener('click', () => {
   mainControls.classList.remove('hidden');
   document.querySelector('.settings-bar').classList.remove('hidden');
   
-  // Redessiner un fond noir sur le canvas pour la prochaine preview
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, composeCanvas.width || 800, composeCanvas.height || 450);
 });
 
-// Trim & Upload
 uploadBtn.addEventListener('click', () => performUpload(true));
-
-// Raw Upload (Fast)
 uploadRawBtn.addEventListener('click', () => performUpload(false));
 
 function performUpload(enableTrim) {
@@ -321,9 +303,9 @@ function performUpload(enableTrim) {
       progressBar.style.width = percentComplete + '%';
       progressText.textContent = percentComplete + '%';
       if (percentComplete === 100 && enableTrim) {
-        progressText.textContent = 'Traitement FFmpeg en cours...';
+        progressText.textContent = 'Processing FFmpeg...';
       } else if (percentComplete === 100) {
-        progressText.textContent = 'Sauvegarde...';
+        progressText.textContent = 'Saving...';
       }
     }
   };
@@ -337,14 +319,14 @@ function performUpload(enableTrim) {
         loadHistory();
       }
     } else {
-      alert("Erreur lors de l'upload ou du traitement.");
+      alert("Error during upload or processing.");
       uploadStatus.classList.add('hidden');
       postRecordControls.classList.remove('hidden');
     }
   };
 
   xhr.onerror = () => {
-    alert("Erreur réseau.");
+    alert("Network error.");
     uploadStatus.classList.add('hidden');
     postRecordControls.classList.remove('hidden');
   };
@@ -366,7 +348,7 @@ copyBtn.addEventListener('click', () => {
   document.execCommand('copy');
   
   const originalText = copyBtn.textContent;
-  copyBtn.textContent = 'Copié !';
+  copyBtn.textContent = 'Copied!';
   copyBtn.classList.add('success');
   
   setTimeout(() => {
@@ -383,14 +365,15 @@ async function loadHistory() {
     historyList.innerHTML = '';
     
     if (data.length === 0) {
-      historyList.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">Aucune vidéo enregistrée.</p>';
+      historyList.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">No videos recorded.</p>';
       return;
     }
     
     data.forEach(item => {
-      const d = new Date(item.date).toLocaleString('fr-FR');
+      // Use en-US locale for consistent date formatting
+      const d = new Date(item.date).toLocaleString('en-US');
       const watchUrl = `${window.location.origin}/watch/${item.id}`;
-      const title = item.title || `Vidéo #${item.id.substring(0,6)}`;
+      const title = item.title || `Video #${item.id.substring(0,6)}`;
       
       const el = document.createElement('div');
       el.className = 'history-item';
@@ -401,8 +384,8 @@ async function loadHistory() {
         </div>
         <div class="date">${d}</div>
         <div class="actions">
-          <button class="btn secondary copy-hist" data-url="${watchUrl}">Lien</button>
-          <a href="/watch/${item.id}" target="_blank" class="btn primary">Voir</a>
+          <button class="btn secondary copy-hist" data-url="${watchUrl}">Link</button>
+          <a href="/watch/${item.id}" target="_blank" class="btn primary">View</a>
           <button class="btn danger del-hist" data-id="${item.id}">X</button>
         </div>
       `;
@@ -414,7 +397,7 @@ async function loadHistory() {
         const url = e.target.dataset.url;
         navigator.clipboard.writeText(url);
         const originalText = e.target.textContent;
-        e.target.textContent = 'Copié!';
+        e.target.textContent = 'Copied!';
         setTimeout(() => e.target.textContent = originalText, 2000);
       });
     });
@@ -423,7 +406,7 @@ async function loadHistory() {
       btn.addEventListener('click', async (e) => {
         const id = e.target.dataset.id;
         const oldTitle = e.target.dataset.title;
-        const newTitle = prompt("Nouveau nom pour la vidéo :", oldTitle);
+        const newTitle = prompt("New name for the video:", oldTitle);
         
         if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
           try {
@@ -434,7 +417,7 @@ async function loadHistory() {
             });
             loadHistory();
           } catch (err) {
-            alert("Erreur lors du renommage.");
+            alert("Error renaming.");
           }
         }
       });
@@ -442,7 +425,7 @@ async function loadHistory() {
 
     document.querySelectorAll('.del-hist').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        if(confirm('Supprimer cette vidéo ?')) {
+        if(confirm('Delete this video?')) {
           const id = e.target.dataset.id;
           await fetch(`/api/video/${id}`, { method: 'DELETE' });
           loadHistory();

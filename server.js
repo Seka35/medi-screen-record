@@ -101,14 +101,23 @@ function generateThumbnail(videoPath, fileId, callback) {
   ffmpeg(videoPath)
     .screenshots({
       count: 1,
-      timestamps: ['00:00:00.000'],
+      timestamps: ['00:00:02.000'], // Capture at 2 seconds instead of the very beginning
       folder: UPLOADS_DIR,
       filename: `${fileId}.jpg`
     })
     .on('end', () => callback(true))
     .on('error', (err) => {
       console.error('Error generating thumbnail:', err);
-      callback(false);
+      // Fallback: If video is too short, try capturing at 0 seconds
+      ffmpeg(videoPath)
+        .screenshots({
+          count: 1,
+          timestamps: ['00:00:00.000'],
+          folder: UPLOADS_DIR,
+          filename: `${fileId}.jpg`
+        })
+        .on('end', () => callback(true))
+        .on('error', () => callback(false));
     });
 }
 

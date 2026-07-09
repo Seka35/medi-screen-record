@@ -29,11 +29,10 @@
         <!-- The canvas is used to compose screen + webcam -->
         <canvas id="composeCanvas"></canvas>
         <div id="timer" class="timer">00:00</div>
+        <!-- Hidden videos placed behind the canvas (z-index 1 vs 10) to prevent browser throttling while staying invisible -->
+        <video id="screenVideo" autoplay muted playsinline class="offscreen-video"></video>
+        <video id="webcamVideo" autoplay muted playsinline class="offscreen-video"></video>
       </div>
-
-      <!-- Hidden videos used for drawing on canvas -->
-      <video id="screenVideo" autoplay muted playsinline class="offscreen-video"></video>
-      <video id="webcamVideo" autoplay muted playsinline class="offscreen-video"></video>
 
       <!-- Preview Mode Player (Hidden initially) -->
       <div class="video-preview-wrapper hidden" id="playbackWrapper">

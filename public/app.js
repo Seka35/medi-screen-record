@@ -127,8 +127,24 @@ async function startRecording() {
 
     displayStream.getVideoTracks()[0].onended = () => stopRecording();
 
+    // Detect best hardware-accelerated codec
+    const mimeTypes = [
+      'video/webm; codecs=h264,opus',
+      'video/webm; codecs=vp9,opus',
+      'video/webm; codecs=vp8,opus',
+      'video/webm'
+    ];
+    let selectedMimeType = 'video/webm';
+    for (const mime of mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mime)) {
+        selectedMimeType = mime;
+        break;
+      }
+    }
+    console.log("Using codec:", selectedMimeType);
+
     const options = { 
-      mimeType: 'video/webm; codecs=vp8,opus',
+      mimeType: selectedMimeType,
       videoBitsPerSecond: 8000000 // 8 Mbps for high quality
     };
     mediaRecorder = new MediaRecorder(finalStream, options);

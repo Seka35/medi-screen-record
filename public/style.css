@@ -461,3 +461,85 @@ input[type=range]::-webkit-slider-runnable-track {
     position: static;
   }
 }
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-content h3 {
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.modal-content textarea {
+  width: 100%;
+  height: 150px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 1rem;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  outline: none;
+}
+
+.modal-content textarea:focus {
+  border-color: var(--primary-color);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* Watch Page Notes */
+.watch-mode {
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 2rem;
+  gap: 2rem;
+}
+
+.watch-mode .player-container {
+  max-width: 1000px;
+  width: 100%;
+}
+
+.watch-mode .video-notes {
+  max-width: 1000px;
+  width: 100%;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 2rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}

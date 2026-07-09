@@ -82,15 +82,15 @@ app.delete('/api/video/:id', authMiddleware, (req, res) => {
 
 app.put('/api/video/:id', authMiddleware, (req, res) => {
   const fileId = req.params.id;
-  const { title } = req.body;
-  
-  if (!title) return res.status(400).json({ error: 'Title required' });
+  const { title, notes } = req.body;
   
   const history = getHistory();
   const video = history.find(v => v.id === fileId);
   if (!video) return res.status(404).json({ error: 'Video not found' });
   
-  video.title = title;
+  if (title !== undefined) video.title = title;
+  if (notes !== undefined) video.notes = notes;
+  
   saveHistory(history);
   
   res.json({ success: true, video });
@@ -235,11 +235,18 @@ app.get('/watch/:id', (req, res) => {
   fs.readFile(templatePath, 'utf8', (err, html) => {
     if (err) return res.status(500).send('Error rendering page');
     
+    let notesDisplay = '';
+    if (video && video.notes && video.notes.trim() !== '') {
+      const safeNotes = video.notes.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      notesDisplay = `<div class="video-notes">${safeNotes}</div>`;
+    }
+
     // Inject dynamic meta tags
     const rendered = html
       .replace(/{{OG_TITLE}}/g, title)
       .replace(/{{OG_IMAGE}}/g, thumbUrl)
-      .replace(/{{OG_URL}}/g, watchUrl);
+      .replace(/{{OG_URL}}/g, watchUrl)
+      .replace(/{{NOTES_DISPLAY}}/g, notesDisplay);
       
     res.send(rendered);
   });

@@ -43,6 +43,13 @@ const endDisplay = document.getElementById('endDisplay');
 
 const historyList = document.getElementById('historyList');
 
+// Notes Modal Elements
+const notesModal = document.getElementById('notesModal');
+const notesTextarea = document.getElementById('notesTextarea');
+const cancelNotesBtn = document.getElementById('cancelNotesBtn');
+const saveNotesBtn = document.getElementById('saveNotesBtn');
+let currentNotesVideoId = null;
+
 loadHistory();
 
 function updateTimer() {
@@ -385,6 +392,7 @@ async function loadHistory() {
         <div class="date">${d}</div>
         <div class="actions">
           <button class="btn secondary copy-hist" data-url="${watchUrl}">Link</button>
+          <button class="btn secondary notes-hist" data-id="${item.id}" data-notes="${(item.notes || '').replace(/"/g, '&quot;')}">📝 Notes</button>
           <a href="/watch/${item.id}" target="_blank" class="btn primary">View</a>
           <button class="btn danger del-hist" data-id="${item.id}">X</button>
         </div>
@@ -423,6 +431,14 @@ async function loadHistory() {
       });
     });
 
+    document.querySelectorAll('.notes-hist').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        currentNotesVideoId = e.target.dataset.id;
+        notesTextarea.value = e.target.dataset.notes || '';
+        notesModal.classList.remove('hidden');
+      });
+    });
+
     document.querySelectorAll('.del-hist').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         if(confirm('Delete this video?')) {
@@ -437,3 +453,27 @@ async function loadHistory() {
     console.error("History loading error", e);
   }
 }
+
+// Notes Modal Handlers
+cancelNotesBtn.addEventListener('click', () => {
+  notesModal.classList.add('hidden');
+  currentNotesVideoId = null;
+});
+
+saveNotesBtn.addEventListener('click', async () => {
+  if (!currentNotesVideoId) return;
+  
+  const newNotes = notesTextarea.value;
+  try {
+    await fetch(`/api/video/${currentNotesVideoId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: newNotes })
+    });
+    notesModal.classList.add('hidden');
+    loadHistory();
+  } catch (err) {
+    alert("Error saving notes.");
+  }
+});
+

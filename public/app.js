@@ -73,7 +73,12 @@ async function startRecording() {
     try {
       voiceStream = await navigator.mediaDevices.getUserMedia({ 
         audio: true,
-        video: includeWebcam ? { facingMode: "user" } : false
+        video: includeWebcam ? { 
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        } : false
       });
     } catch (e) {
       console.warn("Media not available or denied.", e);
@@ -119,7 +124,10 @@ async function startRecording() {
 
     displayStream.getVideoTracks()[0].onended = () => stopRecording();
 
-    const options = { mimeType: 'video/webm; codecs=vp8,opus' };
+    const options = { 
+      mimeType: 'video/webm; codecs=vp8,opus',
+      videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+    };
     mediaRecorder = new MediaRecorder(finalStream, options);
 
     mediaRecorder.ondataavailable = (e) => {

@@ -170,7 +170,7 @@ input:checked + .slider:before {
   height: 100%;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.01;
+  opacity: 1; /* Keep fully opaque but behind the canvas (z-index 0 vs 10) */
 }
 
 #composeCanvas {

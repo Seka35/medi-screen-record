@@ -101,7 +101,11 @@ async function startRecording() {
     }
 
     await new Promise(resolve => {
-      if (screenVideo.videoWidth > 0) return resolve();
+      if (screenVideo.videoWidth > 0) {
+        composeCanvas.width = screenVideo.videoWidth;
+        composeCanvas.height = screenVideo.videoHeight;
+        return resolve();
+      }
       screenVideo.onloadedmetadata = () => {
         composeCanvas.width = screenVideo.videoWidth;
         composeCanvas.height = screenVideo.videoHeight;
@@ -109,9 +113,9 @@ async function startRecording() {
       };
     });
 
-    // Ensure canvas has dimensions if loadedmetadata didn't set it
-    if (!composeCanvas.width) composeCanvas.width = screenVideo.videoWidth || 1280;
-    if (!composeCanvas.height) composeCanvas.height = screenVideo.videoHeight || 720;
+    // Ensure canvas has dimensions as a fallback
+    if (composeCanvas.width < 500) composeCanvas.width = screenVideo.videoWidth || 1280;
+    if (composeCanvas.height < 500) composeCanvas.height = screenVideo.videoHeight || 720;
 
     drawCanvas();
 

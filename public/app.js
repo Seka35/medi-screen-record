@@ -1,15 +1,23 @@
 let mediaRecorder;
 let recordedChunks = [];
-let stream;
+let displayStream;
+let voiceStream;
+let finalStream;
 let timerInterval;
 let startTime;
 let currentBlob;
 let videoDuration = 0;
+let animationFrameId;
 
 // UI Elements
+const webcamToggle = document.getElementById('webcamToggle');
+const composeCanvas = document.getElementById('composeCanvas');
+const ctx = composeCanvas.getContext('2d');
+const screenVideo = document.getElementById('screenVideo');
+const webcamVideo = document.getElementById('webcamVideo');
+
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
-const preview = document.getElementById('preview');
 const timerDisplay = document.getElementById('timer');
 const uploadStatus = document.getElementById('uploadStatus');
 const progressBar = document.getElementById('progressBar');
@@ -47,29 +55,58 @@ function updateTimer() {
 
 async function startRecording() {
   try {
-    const displayStream = await navigator.mediaDevices.getDisplayMedia({
+    const includeWebcam = webcamToggle.checked;
+
+    // 1. Demander l'écran
+    displayStream = await navigator.mediaDevices.getDisplayMedia({
       video: { cursor: "always" },
-      audio: true
+      audio: true // Audio système (optionnel selon OS)
     });
 
-    let voiceStream;
+    // 2. Demander Micro + Webcam (si cochée)
     try {
-      voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true,
+        video: includeWebcam ? { facingMode: "user" } : false
+      });
     } catch (e) {
-      console.warn("Microphone not available or denied.");
+      console.warn("Media non disponible ou refusé.", e);
     }
 
-    const tracks = [...displayStream.getTracks()];
-    if (voiceStream) tracks.push(...voiceStream.getAudioTracks());
+    screenVideo.srcObject = displayStream;
+    if (includeWebcam && voiceStream && voiceStream.getVideoTracks().length > 0) {
+      webcamVideo.srcObject = new MediaStream([voiceStream.getVideoTracks()[0]]);
+    }
 
-    stream = new MediaStream(tracks);
-    preview.srcObject = stream;
-    preview.muted = true;
+    // Attendre que la vidéo de l'écran soit chargée pour fixer la taille du canvas
+    await new Promise(resolve => {
+      screenVideo.onloadedmetadata = () => {
+        composeCanvas.width = screenVideo.videoWidth;
+        composeCanvas.height = screenVideo.videoHeight;
+        resolve();
+      };
+    });
 
+    // Boucle de dessin
+    drawCanvas();
+
+    // 3. Capturer le flux du Canvas (30 fps)
+    finalStream = composeCanvas.captureStream(30);
+
+    // 4. Ajouter les pistes audio au flux final
+    if (voiceStream) {
+      voiceStream.getAudioTracks().forEach(track => finalStream.addTrack(track));
+    }
+    if (displayStream.getAudioTracks().length > 0) {
+      displayStream.getAudioTracks().forEach(track => finalStream.addTrack(track));
+    }
+
+    // Gestion de l'arrêt natif du navigateur
     displayStream.getVideoTracks()[0].onended = () => stopRecording();
 
+    // 5. Initialiser MediaRecorder
     const options = { mimeType: 'video/webm; codecs=vp8,opus' };
-    mediaRecorder = new MediaRecorder(stream, options);
+    mediaRecorder = new MediaRecorder(finalStream, options);
 
     mediaRecorder.ondataavailable = (e) => {
       if (e.data.size > 0) recordedChunks.push(e.data);
@@ -79,14 +116,19 @@ async function startRecording() {
       currentBlob = new Blob(recordedChunks, { type: 'video/webm' });
       showPreview();
       
-      stream.getTracks().forEach(track => track.stop());
-      preview.srcObject = null;
+      // Nettoyage complet
+      cancelAnimationFrame(animationFrameId);
+      if (displayStream) displayStream.getTracks().forEach(t => t.stop());
+      if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
+      screenVideo.srcObject = null;
+      webcamVideo.srcObject = null;
     };
 
     mediaRecorder.start();
     
     startBtn.disabled = true;
     stopBtn.disabled = false;
+    webcamToggle.disabled = true;
     recordedChunks = [];
     
     shareSection.classList.add('hidden');
@@ -99,8 +141,62 @@ async function startRecording() {
 
   } catch (err) {
     console.error("Error starting recording:", err);
-    alert("Impossible de démarrer l'enregistrement.");
+    alert("Impossible de démarrer l'enregistrement. Vérifiez vos permissions.");
   }
+}
+
+function drawCanvas() {
+  if (screenVideo.videoWidth === 0) return;
+
+  // Dessiner l'écran en fond
+  ctx.drawImage(screenVideo, 0, 0, composeCanvas.width, composeCanvas.height);
+
+  // Si webcam active, la dessiner en rond
+  if (webcamToggle.checked && webcamVideo.videoWidth > 0) {
+    const canvasW = composeCanvas.width;
+    const canvasH = composeCanvas.height;
+    
+    // Taille du médaillon (par exemple 15% de la largeur)
+    const radius = Math.max(canvasW * 0.08, 100); 
+    const margin = 30; // Marge depuis le bord
+    const cx = margin + radius; // Centre X
+    const cy = canvasH - margin - radius; // Centre Y en bas à gauche
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.clip(); // Créer le masque circulaire
+
+    // Dessiner la webcam (centrée et rognée pour couvrir le cercle)
+    const camW = webcamVideo.videoWidth;
+    const camH = webcamVideo.videoHeight;
+    const camRatio = camW / camH;
+    
+    let drawW, drawH, drawX, drawY;
+    if (camRatio > 1) { // Paysage
+      drawH = radius * 2;
+      drawW = drawH * camRatio;
+      drawX = cx - drawW / 2;
+      drawY = cy - drawH / 2;
+    } else { // Portrait
+      drawW = radius * 2;
+      drawH = drawW / camRatio;
+      drawX = cx - drawW / 2;
+      drawY = cy - drawH / 2;
+    }
+
+    ctx.drawImage(webcamVideo, drawX, drawY, drawW, drawH);
+    
+    // Ajouter une jolie bordure autour du médaillon
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "white";
+    ctx.stroke();
+    
+    ctx.restore();
+  }
+
+  animationFrameId = requestAnimationFrame(drawCanvas);
 }
 
 function stopRecording() {
@@ -110,6 +206,7 @@ function stopRecording() {
   
   startBtn.disabled = false;
   stopBtn.disabled = true;
+  webcamToggle.disabled = false;
   clearInterval(timerInterval);
   timerDisplay.style.display = 'none';
   timerDisplay.textContent = '00:00';
@@ -118,6 +215,7 @@ function stopRecording() {
 function showPreview() {
   recordingWrapper.classList.add('hidden');
   mainControls.classList.add('hidden');
+  document.querySelector('.settings-bar').classList.add('hidden');
   
   playbackWrapper.classList.remove('hidden');
   postRecordControls.classList.remove('hidden');
@@ -183,6 +281,11 @@ retryBtn.addEventListener('click', () => {
   
   recordingWrapper.classList.remove('hidden');
   mainControls.classList.remove('hidden');
+  document.querySelector('.settings-bar').classList.remove('hidden');
+  
+  // Redessiner un fond noir sur le canvas pour la prochaine preview
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, composeCanvas.width || 800, composeCanvas.height || 450);
 });
 
 // Trim & Upload

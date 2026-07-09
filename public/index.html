@@ -24,10 +24,24 @@
         <p class="subtitle">Capturez et partagez en un clic.</p>
       </header>
 
+      <!-- Settings / Toggles -->
+      <div class="settings-bar">
+        <label class="toggle-switch">
+          <input type="checkbox" id="webcamToggle">
+          <span class="slider round"></span>
+          <span class="toggle-label">Activer la Webcam (PIP)</span>
+        </label>
+      </div>
+
       <div class="video-preview-wrapper" id="recordingWrapper">
-        <video id="preview" autoplay muted></video>
+        <!-- The canvas is used to compose screen + webcam -->
+        <canvas id="composeCanvas"></canvas>
         <div id="timer" class="timer">00:00</div>
       </div>
+
+      <!-- Hidden videos used for drawing on canvas -->
+      <video id="screenVideo" autoplay muted playsinline class="hidden-element"></video>
+      <video id="webcamVideo" autoplay muted playsinline class="hidden-element"></video>
 
       <!-- Preview Mode Player (Hidden initially) -->
       <div class="video-preview-wrapper hidden" id="playbackWrapper">

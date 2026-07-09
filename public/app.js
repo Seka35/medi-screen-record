@@ -66,7 +66,10 @@ async function startRecording() {
     const includeWebcam = webcamToggle.checked;
 
     displayStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { cursor: "always" },
+      video: { 
+        cursor: "always",
+        frameRate: { ideal: 60, max: 60 }
+      },
       audio: true
     });
 
@@ -113,7 +116,7 @@ async function startRecording() {
 
     drawCanvas();
 
-    finalStream = composeCanvas.captureStream(30);
+    finalStream = composeCanvas.captureStream(60);
 
     if (voiceStream) {
       voiceStream.getAudioTracks().forEach(track => finalStream.addTrack(track));

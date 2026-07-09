@@ -45,6 +45,7 @@ const uploadBtn = document.getElementById('uploadBtn');
 const uploadRawBtn = document.getElementById('uploadRawBtn');
 
 const trimControls = document.getElementById('trimControls');
+const videoTitleInput = document.getElementById('videoTitleInput');
 const startTrim = document.getElementById('startTrim');
 const endTrim = document.getElementById('endTrim');
 const startDisplay = document.getElementById('startDisplay');
@@ -311,6 +312,11 @@ function performUpload(enableTrim) {
   const formData = new FormData();
   formData.append('video', currentBlob, 'recording.webm');
   formData.append('trimEnabled', enableTrim);
+  
+  const titleVal = videoTitleInput.value.trim();
+  if (titleVal) {
+    formData.append('title', titleVal);
+  }
 
   if (enableTrim) {
     formData.append('startTime', parseFloat(startTrim.value));

@@ -14,16 +14,8 @@ const webcamToggle = document.getElementById('webcamToggle');
 const composeCanvas = document.getElementById('composeCanvas');
 const ctx = composeCanvas.getContext('2d');
 
-// Create hidden video elements in memory (avoids browser display:none optimizations)
-const screenVideo = document.createElement('video');
-screenVideo.autoplay = true;
-screenVideo.muted = true;
-screenVideo.playsInline = true;
-
-const webcamVideo = document.createElement('video');
-webcamVideo.autoplay = true;
-webcamVideo.muted = true;
-webcamVideo.playsInline = true;
+const screenVideo = document.getElementById('screenVideo');
+const webcamVideo = document.getElementById('webcamVideo');
 
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');

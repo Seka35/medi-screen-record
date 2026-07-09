@@ -142,9 +142,9 @@ async function startRecording() {
 
     displayStream.getVideoTracks()[0].onended = () => stopRecording();
 
-    // Detect best hardware-accelerated codec
+    // Detect best hardware-accelerated codec (VP9 is hardware accelerated and native to WebM)
+    // We removed H.264 because putting H.264 inside a .webm container breaks HTTP playback on Firefox/Chrome.
     const mimeTypes = [
-      'video/webm; codecs=h264,opus',
       'video/webm; codecs=vp9,opus',
       'video/webm; codecs=vp8,opus',
       'video/webm'
@@ -160,7 +160,7 @@ async function startRecording() {
 
     const options = { 
       mimeType: selectedMimeType,
-      videoBitsPerSecond: 8000000 // 8 Mbps for high quality
+      videoBitsPerSecond: 4000000 // 4 Mbps is ideal for 1080p60 WebM without network buffering
     };
     mediaRecorder = new MediaRecorder(finalStream, options);
 

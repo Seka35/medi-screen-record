@@ -77,6 +77,11 @@ app.delete('/api/video/:id', authMiddleware, (req, res) => {
   if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
   if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
   
+  if (video.attachment) {
+    const attachmentPath = path.join(UPLOADS_DIR, video.attachment.fileName);
+    if (fs.existsSync(attachmentPath)) fs.unlinkSync(attachmentPath);
+  }
+  
   res.json({ success: true });
 });
 
@@ -89,10 +94,32 @@ app.put('/api/video/:id', authMiddleware, (req, res) => {
   if (!video) return res.status(404).json({ error: 'Video not found' });
   
   if (title !== undefined) video.title = title;
-  if (notes !== undefined) video.notes = notes;
   
   saveHistory(history);
   
+  res.json({ success: true, video });
+});
+
+app.post('/api/video/:id/notes', authMiddleware, upload.single('attachment'), (req, res) => {
+  const fileId = req.params.id;
+  
+  const history = getHistory();
+  const video = history.find(v => v.id === fileId);
+  if (!video) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(404).json({ error: 'Video not found' });
+  }
+  
+  if (req.body.notes !== undefined) video.notes = req.body.notes;
+  
+  if (req.file) {
+    const ext = path.extname(req.file.originalname);
+    const attachmentName = `${fileId}_attachment${ext}`;
+    fs.renameSync(req.file.path, path.join(UPLOADS_DIR, attachmentName));
+    video.attachment = { originalName: req.file.originalname, fileName: attachmentName };
+  }
+  
+  saveHistory(history);
   res.json({ success: true, video });
 });
 
@@ -215,6 +242,20 @@ app.get('/api/thumbnail/:id', (req, res) => {
   res.sendFile(thumbPath);
 });
 
+app.get('/api/attachment/:id', (req, res) => {
+  const fileId = req.params.id;
+  const history = getHistory();
+  const video = history.find(v => v.id === fileId);
+  if (!video || !video.attachment) return res.status(404).send('Attachment not found');
+  
+  const filePath = path.join(UPLOADS_DIR, video.attachment.fileName);
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, video.attachment.originalName);
+  } else {
+    res.status(404).send('File not found on disk');
+  }
+});
+
 app.get('/watch/:id', (req, res) => {
   const fileId = req.params.id;
   const videoPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
@@ -240,13 +281,20 @@ app.get('/watch/:id', (req, res) => {
       const safeNotes = video.notes.replace(/</g, "&lt;").replace(/>/g, "&gt;");
       notesDisplay = `<div class="video-notes">${safeNotes}</div>`;
     }
+    
+    let attachmentDisplay = '';
+    if (video && video.attachment) {
+      const downloadUrl = `${baseUrl}/api/attachment/${fileId}`;
+      attachmentDisplay = `<a href="${downloadUrl}" class="btn primary download-btn" download>Download Attachment: ${video.attachment.originalName}</a>`;
+    }
 
     // Inject dynamic meta tags
     const rendered = html
       .replace(/{{OG_TITLE}}/g, title)
       .replace(/{{OG_IMAGE}}/g, thumbUrl)
       .replace(/{{OG_URL}}/g, watchUrl)
-      .replace(/{{NOTES_DISPLAY}}/g, notesDisplay);
+      .replace(/{{NOTES_DISPLAY}}/g, notesDisplay)
+      .replace(/{{ATTACHMENT_DISPLAY}}/g, attachmentDisplay);
       
     res.send(rendered);
   });

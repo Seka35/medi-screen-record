@@ -517,6 +517,28 @@ input[type=range]::-webkit-slider-runnable-track {
   margin-top: 1rem;
 }
 
+.file-upload-wrapper {
+  margin-top: 0.5rem;
+}
+
+.file-upload-label {
+  display: block;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed var(--glass-border);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary);
+}
+
+.file-upload-label:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary-color);
+  color: var(--text-primary);
+}
+
 /* Watch Page Notes */
 .watch-mode {
   flex-direction: column;
@@ -542,4 +564,12 @@ input[type=range]::-webkit-slider-runnable-track {
   line-height: 1.6;
   white-space: pre-wrap;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.watch-mode .download-btn {
+  max-width: 1000px;
+  width: 100%;
+  justify-content: center;
+  margin-top: 1rem;
+  text-decoration: none;
 }

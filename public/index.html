@@ -92,6 +92,7 @@
           <input type="text" id="shareLink" readonly />
           <button id="copyBtn" class="btn secondary">Copy</button>
         </div>
+        <button id="quickNotesBtn" class="btn primary" style="margin-top: 1rem; width: 100%; justify-content: center;">📝 Add Notes / File</button>
       </div>
     </main>
   </div>
@@ -99,11 +100,19 @@
   <!-- Notes Modal -->
   <div id="notesModal" class="modal-overlay hidden">
     <div class="modal-content glass-container">
-      <h3>Video Notes</h3>
+      <h3>Video Notes & Attachments</h3>
       <textarea id="notesTextarea" placeholder="Write your instructions or context here..."></textarea>
+      
+      <div class="file-upload-wrapper">
+        <label for="attachmentInput" class="file-upload-label">
+          <span id="attachmentNameDisplay">📎 Attach a file (PDF, Image, etc.)</span>
+        </label>
+        <input type="file" id="attachmentInput" class="hidden-element">
+      </div>
+
       <div class="modal-actions">
         <button id="cancelNotesBtn" class="btn secondary">Cancel</button>
-        <button id="saveNotesBtn" class="btn primary">Save Notes</button>
+        <button id="saveNotesBtn" class="btn primary">Save</button>
       </div>
     </div>
   </div>

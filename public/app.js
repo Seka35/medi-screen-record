@@ -46,8 +46,11 @@ const historyList = document.getElementById('historyList');
 // Notes Modal Elements
 const notesModal = document.getElementById('notesModal');
 const notesTextarea = document.getElementById('notesTextarea');
+const attachmentInput = document.getElementById('attachmentInput');
+const attachmentNameDisplay = document.getElementById('attachmentNameDisplay');
 const cancelNotesBtn = document.getElementById('cancelNotesBtn');
 const saveNotesBtn = document.getElementById('saveNotesBtn');
+const quickNotesBtn = document.getElementById('quickNotesBtn');
 let currentNotesVideoId = null;
 
 loadHistory();
@@ -345,6 +348,15 @@ function showShareLink(videoId) {
   shareSection.classList.remove('hidden');
   const watchUrl = `${window.location.origin}/watch/${videoId}`;
   shareLink.value = watchUrl;
+  
+  // Link quick notes button
+  quickNotesBtn.onclick = () => {
+    currentNotesVideoId = videoId;
+    notesTextarea.value = '';
+    attachmentInput.value = '';
+    attachmentNameDisplay.textContent = '📎 Attach a file (PDF, Image, etc.)';
+    notesModal.classList.remove('hidden');
+  };
 }
 
 startBtn.addEventListener('click', startRecording);
@@ -455,25 +467,52 @@ async function loadHistory() {
 }
 
 // Notes Modal Handlers
+attachmentInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) {
+    attachmentNameDisplay.textContent = `📎 ${e.target.files[0].name}`;
+  } else {
+    attachmentNameDisplay.textContent = '📎 Attach a file (PDF, Image, etc.)';
+  }
+});
+
 cancelNotesBtn.addEventListener('click', () => {
   notesModal.classList.add('hidden');
   currentNotesVideoId = null;
+  attachmentInput.value = '';
+  attachmentNameDisplay.textContent = '📎 Attach a file (PDF, Image, etc.)';
 });
 
 saveNotesBtn.addEventListener('click', async () => {
   if (!currentNotesVideoId) return;
   
-  const newNotes = notesTextarea.value;
+  const formData = new FormData();
+  formData.append('notes', notesTextarea.value);
+  if (attachmentInput.files.length > 0) {
+    formData.append('attachment', attachmentInput.files[0]);
+  }
+  
+  saveNotesBtn.disabled = true;
+  saveNotesBtn.textContent = 'Saving...';
+  
   try {
-    await fetch(`/api/video/${currentNotesVideoId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: newNotes })
+    const res = await fetch(`/api/video/${currentNotesVideoId}/notes`, {
+      method: 'POST',
+      body: formData
     });
-    notesModal.classList.add('hidden');
-    loadHistory();
+    
+    if (res.ok) {
+      notesModal.classList.add('hidden');
+      loadHistory();
+      attachmentInput.value = '';
+      attachmentNameDisplay.textContent = '📎 Attach a file (PDF, Image, etc.)';
+    } else {
+      alert("Error saving notes/attachment.");
+    }
   } catch (err) {
     alert("Error saving notes.");
   }
+  
+  saveNotesBtn.disabled = false;
+  saveNotesBtn.textContent = 'Save';
 });
 

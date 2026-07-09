@@ -14,6 +14,20 @@ const webcamToggle = document.getElementById('webcamToggle');
 const composeCanvas = document.getElementById('composeCanvas');
 const ctx = composeCanvas.getContext('2d');
 
+// Web Worker for background Canvas drawing (bypasses browser throttling)
+const workerCode = `
+  let intervalId = null;
+  self.onmessage = function(e) {
+    if (e.data === 'start') {
+      intervalId = setInterval(() => self.postMessage('tick'), 1000/60); // 60 FPS
+    } else if (e.data === 'stop') {
+      clearInterval(intervalId);
+    }
+  }
+`;
+const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+const timerWorker = new Worker(URL.createObjectURL(workerBlob));
+
 const screenVideo = document.getElementById('screenVideo');
 const webcamVideo = document.getElementById('webcamVideo');
 
@@ -114,7 +128,8 @@ async function startRecording() {
     if (composeCanvas.width < 500) composeCanvas.width = screenVideo.videoWidth || 1280;
     if (composeCanvas.height < 500) composeCanvas.height = screenVideo.videoHeight || 720;
 
-    drawCanvas();
+    timerWorker.onmessage = () => drawCanvas();
+    timerWorker.postMessage('start');
 
     finalStream = composeCanvas.captureStream(60);
 
@@ -230,8 +245,6 @@ function drawCanvas() {
       ctx.restore();
     }
   }
-
-  animationFrameId = requestAnimationFrame(drawCanvas);
 }
 
 function stopRecording() {
@@ -243,6 +256,8 @@ function stopRecording() {
   stopBtn.disabled = true;
   webcamToggle.disabled = false;
   clearInterval(timerInterval);
+  timerWorker.postMessage('stop');
+  startBtn.classList.remove('hidden');
   timerDisplay.style.display = 'none';
   timerDisplay.textContent = '00:00';
 }

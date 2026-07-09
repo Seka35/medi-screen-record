@@ -13,8 +13,17 @@ let animationFrameId;
 const webcamToggle = document.getElementById('webcamToggle');
 const composeCanvas = document.getElementById('composeCanvas');
 const ctx = composeCanvas.getContext('2d');
-const screenVideo = document.getElementById('screenVideo');
-const webcamVideo = document.getElementById('webcamVideo');
+
+// Create hidden video elements in memory (avoids browser display:none optimizations)
+const screenVideo = document.createElement('video');
+screenVideo.autoplay = true;
+screenVideo.muted = true;
+screenVideo.playsInline = true;
+
+const webcamVideo = document.createElement('video');
+webcamVideo.autoplay = true;
+webcamVideo.muted = true;
+webcamVideo.playsInline = true;
 
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
@@ -86,13 +95,23 @@ async function startRecording() {
       webcamVideo.srcObject = new MediaStream([voiceStream.getVideoTracks()[0]]);
     }
 
+    try { await screenVideo.play(); } catch(e){}
+    if (webcamVideo.srcObject) {
+      try { await webcamVideo.play(); } catch(e){}
+    }
+
     await new Promise(resolve => {
+      if (screenVideo.videoWidth > 0) return resolve();
       screenVideo.onloadedmetadata = () => {
         composeCanvas.width = screenVideo.videoWidth;
         composeCanvas.height = screenVideo.videoHeight;
         resolve();
       };
     });
+
+    // Ensure canvas has dimensions if loadedmetadata didn't set it
+    if (!composeCanvas.width) composeCanvas.width = screenVideo.videoWidth || 1280;
+    if (!composeCanvas.height) composeCanvas.height = screenVideo.videoHeight || 720;
 
     drawCanvas();
 
@@ -147,49 +166,49 @@ async function startRecording() {
 }
 
 function drawCanvas() {
-  if (screenVideo.videoWidth === 0) return;
+  if (screenVideo.videoWidth > 0) {
+    ctx.drawImage(screenVideo, 0, 0, composeCanvas.width, composeCanvas.height);
 
-  ctx.drawImage(screenVideo, 0, 0, composeCanvas.width, composeCanvas.height);
+    if (webcamToggle.checked && webcamVideo.videoWidth > 0) {
+      const canvasW = composeCanvas.width;
+      const canvasH = composeCanvas.height;
+      
+      const radius = Math.max(canvasW * 0.08, 100); 
+      const margin = 30; 
+      const cx = margin + radius; 
+      const cy = canvasH - margin - radius; 
 
-  if (webcamToggle.checked && webcamVideo.videoWidth > 0) {
-    const canvasW = composeCanvas.width;
-    const canvasH = composeCanvas.height;
-    
-    const radius = Math.max(canvasW * 0.08, 100); 
-    const margin = 30; 
-    const cx = margin + radius; 
-    const cy = canvasH - margin - radius; 
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+      ctx.closePath();
+      ctx.clip();
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
-    ctx.closePath();
-    ctx.clip();
+      const camW = webcamVideo.videoWidth;
+      const camH = webcamVideo.videoHeight;
+      const camRatio = camW / camH;
+      
+      let drawW, drawH, drawX, drawY;
+      if (camRatio > 1) { 
+        drawH = radius * 2;
+        drawW = drawH * camRatio;
+        drawX = cx - drawW / 2;
+        drawY = cy - drawH / 2;
+      } else { 
+        drawW = radius * 2;
+        drawH = drawW / camRatio;
+        drawX = cx - drawW / 2;
+        drawY = cy - drawH / 2;
+      }
 
-    const camW = webcamVideo.videoWidth;
-    const camH = webcamVideo.videoHeight;
-    const camRatio = camW / camH;
-    
-    let drawW, drawH, drawX, drawY;
-    if (camRatio > 1) { 
-      drawH = radius * 2;
-      drawW = drawH * camRatio;
-      drawX = cx - drawW / 2;
-      drawY = cy - drawH / 2;
-    } else { 
-      drawW = radius * 2;
-      drawH = drawW / camRatio;
-      drawX = cx - drawW / 2;
-      drawY = cy - drawH / 2;
+      ctx.drawImage(webcamVideo, drawX, drawY, drawW, drawH);
+      
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "white";
+      ctx.stroke();
+      
+      ctx.restore();
     }
-
-    ctx.drawImage(webcamVideo, drawX, drawY, drawW, drawH);
-    
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "white";
-    ctx.stroke();
-    
-    ctx.restore();
   }
 
   animationFrameId = requestAnimationFrame(drawCanvas);

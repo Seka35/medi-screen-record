@@ -300,6 +300,41 @@ app.get('/watch/:id', (req, res) => {
   });
 });
 
+// Auto-cleanup routine: 7 days
+function cleanOldVideos() {
+  const history = getHistory();
+  const now = new Date();
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+  
+  let cleaned = false;
+  const newHistory = history.filter(video => {
+    const videoDate = new Date(video.date);
+    if (now - videoDate > SEVEN_DAYS_MS) {
+      const videoPath = path.join(UPLOADS_DIR, `${video.id}.webm`);
+      const thumbPath = path.join(UPLOADS_DIR, `${video.id}.jpg`);
+      if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+      if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
+      
+      if (video.attachment) {
+        const attachmentPath = path.join(UPLOADS_DIR, video.attachment.fileName);
+        if (fs.existsSync(attachmentPath)) fs.unlinkSync(attachmentPath);
+      }
+      cleaned = true;
+      console.log(`[Cleanup] Removed old video: ${video.id}`);
+      return false;
+    }
+    return true;
+  });
+  
+  if (cleaned) {
+    saveHistory(newHistory);
+    console.log(`[Cleanup] Database updated.`);
+  }
+}
+
+setInterval(cleanOldVideos, 12 * 60 * 60 * 1000);
+cleanOldVideos();
+
 app.listen(PORT, () => {
   console.log(`Media Screen Recorder server is running on port ${PORT}`);
 });

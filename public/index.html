@@ -8,15 +8,7 @@
 </head>
 <body>
   
-  <div class="layout">
-    <!-- History Sidebar -->
-    <aside class="glass-container history-panel">
-      <h2>History</h2>
-      <div id="historyList" class="history-list">
-        <!-- History items will be injected here -->
-      </div>
-    </aside>
-
+  <div class="layout centered-layout">
     <!-- Main Content -->
     <main class="glass-container recorder-container">
       <header>
@@ -48,6 +40,10 @@
 
       <!-- Trimming Controls (Hidden initially) -->
       <div id="trimControls" class="trim-controls hidden">
+        <div class="trim-group">
+          <label>Video Title</label>
+          <input type="text" id="videoTitleInput" class="custom-input" placeholder="Enter a title for your video (e.g., QA Testing)">
+        </div>
         <div class="trim-group">
           <label>Start (<span id="startDisplay">0.0</span>s)</label>
           <input type="range" id="startTrim" min="0" value="0" step="0.1">

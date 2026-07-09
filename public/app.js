@@ -50,8 +50,6 @@ const endTrim = document.getElementById('endTrim');
 const startDisplay = document.getElementById('startDisplay');
 const endDisplay = document.getElementById('endDisplay');
 
-const historyList = document.getElementById('historyList');
-
 // Notes Modal Elements
 const notesModal = document.getElementById('notesModal');
 const notesTextarea = document.getElementById('notesTextarea');
@@ -61,8 +59,6 @@ const cancelNotesBtn = document.getElementById('cancelNotesBtn');
 const saveNotesBtn = document.getElementById('saveNotesBtn');
 const quickNotesBtn = document.getElementById('quickNotesBtn');
 let currentNotesVideoId = null;
-
-loadHistory();
 
 function updateTimer() {
   const now = Date.now();
@@ -349,7 +345,6 @@ function performUpload(enableTrim) {
       if (response.success) {
         uploadStatus.classList.add('hidden');
         showShareLink(response.id);
-        loadHistory();
       }
     } else {
       alert("Error during upload or processing.");
@@ -399,95 +394,6 @@ copyBtn.addEventListener('click', () => {
   }, 2000);
 });
 
-async function loadHistory() {
-  try {
-    const res = await fetch('/api/history');
-    const data = await res.json();
-    
-    historyList.innerHTML = '';
-    
-    if (data.length === 0) {
-      historyList.innerHTML = '<p style="color:var(--text-secondary);font-size:0.9rem;">No videos recorded.</p>';
-      return;
-    }
-    
-    data.forEach(item => {
-      // Use en-US locale for consistent date formatting
-      const d = new Date(item.date).toLocaleString('en-US');
-      const watchUrl = `${window.location.origin}/watch/${item.id}`;
-      const title = item.title || `Video #${item.id.substring(0,6)}`;
-      
-      const el = document.createElement('div');
-      el.className = 'history-item';
-      el.innerHTML = `
-        <div class="history-title-row">
-          <span class="title" title="${title}">${title}</span>
-          <button class="edit-btn rename-hist" data-id="${item.id}" data-title="${title}">✏️</button>
-        </div>
-        <div class="date">${d}</div>
-        <div class="actions">
-          <button class="btn secondary copy-hist" data-url="${watchUrl}">Link</button>
-          <button class="btn secondary notes-hist" data-id="${item.id}" data-notes="${(item.notes || '').replace(/"/g, '&quot;')}">📝 Notes</button>
-          <a href="/watch/${item.id}" target="_blank" class="btn primary">View</a>
-          <button class="btn danger del-hist" data-id="${item.id}">X</button>
-        </div>
-      `;
-      historyList.appendChild(el);
-    });
-
-    document.querySelectorAll('.copy-hist').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const url = e.target.dataset.url;
-        navigator.clipboard.writeText(url);
-        const originalText = e.target.textContent;
-        e.target.textContent = 'Copied!';
-        setTimeout(() => e.target.textContent = originalText, 2000);
-      });
-    });
-
-    document.querySelectorAll('.rename-hist').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const id = e.target.dataset.id;
-        const oldTitle = e.target.dataset.title;
-        const newTitle = prompt("New name for the video:", oldTitle);
-        
-        if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
-          try {
-            await fetch(`/api/video/${id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ title: newTitle.trim() })
-            });
-            loadHistory();
-          } catch (err) {
-            alert("Error renaming.");
-          }
-        }
-      });
-    });
-
-    document.querySelectorAll('.notes-hist').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        currentNotesVideoId = e.target.dataset.id;
-        notesTextarea.value = e.target.dataset.notes || '';
-        notesModal.classList.remove('hidden');
-      });
-    });
-
-    document.querySelectorAll('.del-hist').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        if(confirm('Delete this video?')) {
-          const id = e.target.dataset.id;
-          await fetch(`/api/video/${id}`, { method: 'DELETE' });
-          loadHistory();
-        }
-      });
-    });
-    
-  } catch(e) {
-    console.error("History loading error", e);
-  }
-}
 
 // Notes Modal Handlers
 attachmentInput.addEventListener('change', (e) => {
@@ -525,7 +431,6 @@ saveNotesBtn.addEventListener('click', async () => {
     
     if (res.ok) {
       notesModal.classList.add('hidden');
-      loadHistory();
       attachmentInput.value = '';
       attachmentNameDisplay.textContent = '📎 Attach a file (PDF, Image, etc.)';
     } else {

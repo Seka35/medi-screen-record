@@ -73,12 +73,13 @@ app.delete('/api/video/:id', authMiddleware, (req, res) => {
   saveHistory(newHistory);
   
   const videoPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
+  const thumbPath = path.join(UPLOADS_DIR, `${fileId}.jpg`);
   if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+  if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
   
   res.json({ success: true });
 });
 
-// Rename Video
 app.put('/api/video/:id', authMiddleware, (req, res) => {
   const fileId = req.params.id;
   const { title } = req.body;
@@ -94,6 +95,22 @@ app.put('/api/video/:id', authMiddleware, (req, res) => {
   
   res.json({ success: true, video });
 });
+
+// Create Thumbnail helper
+function generateThumbnail(videoPath, fileId, callback) {
+  ffmpeg(videoPath)
+    .screenshots({
+      count: 1,
+      timestamps: ['00:00:00.000'],
+      folder: UPLOADS_DIR,
+      filename: `${fileId}.jpg`
+    })
+    .on('end', () => callback(true))
+    .on('error', (err) => {
+      console.error('Error generating thumbnail:', err);
+      callback(false);
+    });
+}
 
 app.post('/api/upload', authMiddleware, upload.single('video'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No video file provided.' });
@@ -117,7 +134,11 @@ app.post('/api/upload', authMiddleware, upload.single('video'), (req, res) => {
     saveHistory(history);
     
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-    res.json({ success: true, id: fileId });
+
+    // Generate thumbnail async
+    generateThumbnail(finalPath, fileId, () => {
+      res.json({ success: true, id: fileId });
+    });
   };
 
   if (trimEnabled && (startTime > 0 || (endTime && endTime > 0))) {
@@ -175,11 +196,44 @@ app.get('/api/video/:id', (req, res) => {
   }
 });
 
+app.get('/api/thumbnail/:id', (req, res) => {
+  const fileId = req.params.id;
+  const thumbPath = path.join(UPLOADS_DIR, `${fileId}.jpg`);
+  if (!fs.existsSync(thumbPath)) {
+    // Return a 404 or a default image if no thumbnail exists
+    return res.status(404).send('Thumbnail not found');
+  }
+  res.sendFile(thumbPath);
+});
+
 app.get('/watch/:id', (req, res) => {
   const fileId = req.params.id;
   const videoPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
+  
   if (!fs.existsSync(videoPath)) return res.status(404).send('Video not found');
-  res.sendFile(path.join(__dirname, 'public', 'watch.html'));
+  
+  const history = getHistory();
+  const video = history.find(v => v.id === fileId);
+  const title = video ? video.title : 'Shared Video';
+
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers.host;
+  const baseUrl = `${protocol}://${host}`;
+  const watchUrl = `${baseUrl}/watch/${fileId}`;
+  const thumbUrl = `${baseUrl}/api/thumbnail/${fileId}`;
+
+  const templatePath = path.join(__dirname, 'public', 'watch.html');
+  fs.readFile(templatePath, 'utf8', (err, html) => {
+    if (err) return res.status(500).send('Error rendering page');
+    
+    // Inject dynamic meta tags
+    const rendered = html
+      .replace(/{{OG_TITLE}}/g, title)
+      .replace(/{{OG_IMAGE}}/g, thumbUrl)
+      .replace(/{{OG_URL}}/g, watchUrl);
+      
+    res.send(rendered);
+  });
 });
 
 app.listen(PORT, () => {

@@ -1,22 +1,35 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watch - Media Screen Recorder</title>
+  
+  <title>{{OG_TITLE}} - Media Screen Recorder</title>
+  
+  <!-- Open Graph / WhatsApp / Facebook -->
+  <meta property="og:type" content="video.other">
+  <meta property="og:title" content="{{OG_TITLE}}">
+  <meta property="og:description" content="Screen Recording Shared via Media Screen Recorder">
+  <meta property="og:image" content="{{OG_IMAGE}}">
+  <meta property="og:url" content="{{OG_URL}}">
+  <meta property="og:site_name" content="Media Screen Recorder">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{OG_TITLE}}">
+  <meta name="twitter:description" content="Screen Recording Shared via Media Screen Recorder">
+  <meta name="twitter:image" content="{{OG_IMAGE}}">
+
   <link rel="stylesheet" href="/style.css">
 </head>
 <body class="watch-mode">
   <div class="glass-container player-container">
-    <video id="player" controls playsinline></video>
+    <video id="player" controls playsinline poster="{{OG_IMAGE}}"></video>
   </div>
 
   <script>
-    // Get the video ID from the URL
     const pathParts = window.location.pathname.split('/');
     const videoId = pathParts[pathParts.length - 1];
-    
-    // Set the video source to the streaming endpoint
     const player = document.getElementById('player');
     player.src = `/api/video/${videoId}`;
   </script>

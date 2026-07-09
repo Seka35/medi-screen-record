@@ -13,11 +13,9 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const TEMP_DIR = path.join(__dirname, 'temp');
 const DB_FILE = path.join(__dirname, 'database.json');
 
-// Ensure directories exist
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR);
 
-// Ensure DB exists
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify([]));
 }
@@ -31,7 +29,6 @@ function saveHistory(history) {
   fs.writeFileSync(DB_FILE, JSON.stringify(history, null, 2));
 }
 
-// Basic Auth configuration for the recording page
 const authUser = process.env.AUTH_USER || 'admin';
 const authPass = process.env.AUTH_PASS || 'password';
 const users = {};
@@ -43,7 +40,6 @@ const authMiddleware = basicAuth({
   unauthorizedResponse: 'Unauthorized'
 });
 
-// Multer setup for handling video uploads temporarily
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, TEMP_DIR);
@@ -57,17 +53,14 @@ const upload = multer({ storage: storage });
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.use(express.json());
 
-// Main App Route
 app.get('/', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API - Get History
 app.get('/api/history', authMiddleware, (req, res) => {
   res.json(getHistory());
 });
 
-// API - Delete Video
 app.delete('/api/video/:id', authMiddleware, (req, res) => {
   const fileId = req.params.id;
   const history = getHistory();
@@ -80,53 +73,59 @@ app.delete('/api/video/:id', authMiddleware, (req, res) => {
   saveHistory(newHistory);
   
   const videoPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
-  if (fs.existsSync(videoPath)) {
-    fs.unlinkSync(videoPath);
-  }
+  if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
   
   res.json({ success: true });
 });
 
-// API - Upload & Trim
+// Rename Video
+app.put('/api/video/:id', authMiddleware, (req, res) => {
+  const fileId = req.params.id;
+  const { title } = req.body;
+  
+  if (!title) return res.status(400).json({ error: 'Title required' });
+  
+  const history = getHistory();
+  const video = history.find(v => v.id === fileId);
+  if (!video) return res.status(404).json({ error: 'Video not found' });
+  
+  video.title = title;
+  saveHistory(history);
+  
+  res.json({ success: true, video });
+});
+
 app.post('/api/upload', authMiddleware, upload.single('video'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No video file provided.' });
-  }
+  if (!req.file) return res.status(400).json({ error: 'No video file provided.' });
   
   const tempPath = req.file.path;
   const fileId = uuidv4();
   const finalPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
+  
+  const trimEnabled = req.body.trimEnabled === 'true';
   const startTime = parseFloat(req.body.startTime) || 0;
-  let endTime = parseFloat(req.body.endTime); // Can be NaN if not set
+  let endTime = parseFloat(req.body.endTime);
 
-  // Function to save metadata and cleanup
   const finalizeUpload = (duration) => {
     const history = getHistory();
     history.unshift({
       id: fileId,
+      title: `Vidéo #${fileId.substring(0, 6)}`,
       date: new Date().toISOString(),
       duration: duration || 0
     });
     saveHistory(history);
     
-    // Cleanup temp
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-    
     res.json({ success: true, id: fileId });
   };
 
-  if (startTime > 0 || (endTime && endTime > 0)) {
-    // Needs trimming
+  if (trimEnabled && (startTime > 0 || (endTime && endTime > 0))) {
     let command = ffmpeg(tempPath).setStartTime(startTime);
-    
-    if (endTime && endTime > startTime) {
-      command = command.setDuration(endTime - startTime);
-    }
+    if (endTime && endTime > startTime) command = command.setDuration(endTime - startTime);
     
     command.output(finalPath)
-      .on('end', () => {
-        finalizeUpload(endTime ? (endTime - startTime) : 0);
-      })
+      .on('end', () => finalizeUpload(endTime ? (endTime - startTime) : 0))
       .on('error', (err) => {
         console.error('FFmpeg Error:', err);
         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
@@ -134,20 +133,16 @@ app.post('/api/upload', authMiddleware, upload.single('video'), (req, res) => {
       })
       .run();
   } else {
-    // No trimming needed, just move the file
     fs.renameSync(tempPath, finalPath);
     finalizeUpload(0);
   }
 });
 
-// Endpoint to stream the video
 app.get('/api/video/:id', (req, res) => {
   const fileId = req.params.id;
   const videoPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
 
-  if (!fs.existsSync(videoPath)) {
-    return res.status(404).send('Video not found');
-  }
+  if (!fs.existsSync(videoPath)) return res.status(404).send('Video not found');
 
   const stat = fs.statSync(videoPath);
   const fileSize = stat.size;
@@ -158,10 +153,7 @@ app.get('/api/video/:id', (req, res) => {
     const start = parseInt(parts[0], 10);
     const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
 
-    if(start >= fileSize) {
-      res.status(416).send('Requested range not satisfiable');
-      return;
-    }
+    if(start >= fileSize) return res.status(416).send('Requested range not satisfiable');
 
     const chunksize = (end - start) + 1;
     const file = fs.createReadStream(videoPath, { start, end });
@@ -171,7 +163,6 @@ app.get('/api/video/:id', (req, res) => {
       'Content-Length': chunksize,
       'Content-Type': 'video/webm',
     };
-
     res.writeHead(206, head);
     file.pipe(res);
   } else {
@@ -187,7 +178,6 @@ app.get('/api/video/:id', (req, res) => {
 app.get('/watch/:id', (req, res) => {
   const fileId = req.params.id;
   const videoPath = path.join(UPLOADS_DIR, `${fileId}.webm`);
-  
   if (!fs.existsSync(videoPath)) return res.status(404).send('Video not found');
   res.sendFile(path.join(__dirname, 'public', 'watch.html'));
 });

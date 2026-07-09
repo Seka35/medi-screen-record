@@ -25,6 +25,7 @@ const mainControls = document.getElementById('mainControls');
 const postRecordControls = document.getElementById('postRecordControls');
 const retryBtn = document.getElementById('retryBtn');
 const uploadBtn = document.getElementById('uploadBtn');
+const uploadRawBtn = document.getElementById('uploadRawBtn');
 
 const trimControls = document.getElementById('trimControls');
 const startTrim = document.getElementById('startTrim');
@@ -34,7 +35,6 @@ const endDisplay = document.getElementById('endDisplay');
 
 const historyList = document.getElementById('historyList');
 
-// Initialize History
 loadHistory();
 
 function updateTimer() {
@@ -89,7 +89,6 @@ async function startRecording() {
     stopBtn.disabled = false;
     recordedChunks = [];
     
-    // Hide post-record stuff
     shareSection.classList.add('hidden');
     uploadStatus.classList.add('hidden');
     trimControls.classList.add('hidden');
@@ -100,7 +99,7 @@ async function startRecording() {
 
   } catch (err) {
     console.error("Error starting recording:", err);
-    alert("Impossible de démarrer l'enregistrement. Veuillez vérifier les permissions.");
+    alert("Impossible de démarrer l'enregistrement.");
   }
 }
 
@@ -130,7 +129,6 @@ function showPreview() {
   playbackPlayer.onloadedmetadata = () => {
     videoDuration = playbackPlayer.duration;
     if (videoDuration === Infinity || isNaN(videoDuration)) {
-      // Chrome bug workaround for webm duration
       playbackPlayer.currentTime = 1e101;
       playbackPlayer.ontimeupdate = function() {
         this.ontimeupdate = () => { return; }
@@ -147,10 +145,8 @@ function showPreview() {
 function setupTrimControls() {
   startTrim.max = videoDuration;
   endTrim.max = videoDuration;
-  
   startTrim.value = 0;
   endTrim.value = videoDuration;
-  
   startDisplay.textContent = "0.0";
   endDisplay.textContent = videoDuration.toFixed(1);
 }
@@ -189,16 +185,23 @@ retryBtn.addEventListener('click', () => {
   mainControls.classList.remove('hidden');
 });
 
-uploadBtn.addEventListener('click', () => {
-  if (!currentBlob) return;
+// Trim & Upload
+uploadBtn.addEventListener('click', () => performUpload(true));
 
-  const sTime = parseFloat(startTrim.value);
-  const eTime = parseFloat(endTrim.value);
+// Raw Upload (Fast)
+uploadRawBtn.addEventListener('click', () => performUpload(false));
+
+function performUpload(enableTrim) {
+  if (!currentBlob) return;
 
   const formData = new FormData();
   formData.append('video', currentBlob, 'recording.webm');
-  formData.append('startTime', sTime);
-  formData.append('endTime', eTime);
+  formData.append('trimEnabled', enableTrim);
+
+  if (enableTrim) {
+    formData.append('startTime', parseFloat(startTrim.value));
+    formData.append('endTime', parseFloat(endTrim.value));
+  }
 
   postRecordControls.classList.add('hidden');
   trimControls.classList.add('hidden');
@@ -214,8 +217,10 @@ uploadBtn.addEventListener('click', () => {
       const percentComplete = Math.round((e.loaded / e.total) * 100);
       progressBar.style.width = percentComplete + '%';
       progressText.textContent = percentComplete + '%';
-      if (percentComplete === 100) {
-        progressText.textContent = 'Traitement (découpage)...';
+      if (percentComplete === 100 && enableTrim) {
+        progressText.textContent = 'Traitement FFmpeg en cours...';
+      } else if (percentComplete === 100) {
+        progressText.textContent = 'Sauvegarde...';
       }
     }
   };
@@ -226,7 +231,7 @@ uploadBtn.addEventListener('click', () => {
       if (response.success) {
         uploadStatus.classList.add('hidden');
         showShareLink(response.id);
-        loadHistory(); // Reload history after upload
+        loadHistory();
       }
     } else {
       alert("Erreur lors de l'upload ou du traitement.");
@@ -242,7 +247,7 @@ uploadBtn.addEventListener('click', () => {
   };
 
   xhr.send(formData);
-});
+}
 
 function showShareLink(videoId) {
   shareSection.classList.remove('hidden');
@@ -282,11 +287,15 @@ async function loadHistory() {
     data.forEach(item => {
       const d = new Date(item.date).toLocaleString('fr-FR');
       const watchUrl = `${window.location.origin}/watch/${item.id}`;
+      const title = item.title || `Vidéo #${item.id.substring(0,6)}`;
       
       const el = document.createElement('div');
       el.className = 'history-item';
       el.innerHTML = `
-        <div>Vidéo #${item.id.substring(0,6)}</div>
+        <div class="history-title-row">
+          <span class="title" title="${title}">${title}</span>
+          <button class="edit-btn rename-hist" data-id="${item.id}" data-title="${title}">✏️</button>
+        </div>
         <div class="date">${d}</div>
         <div class="actions">
           <button class="btn secondary copy-hist" data-url="${watchUrl}">Lien</button>
@@ -297,7 +306,6 @@ async function loadHistory() {
       historyList.appendChild(el);
     });
 
-    // Attach events
     document.querySelectorAll('.copy-hist').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const url = e.target.dataset.url;
@@ -305,6 +313,27 @@ async function loadHistory() {
         const originalText = e.target.textContent;
         e.target.textContent = 'Copié!';
         setTimeout(() => e.target.textContent = originalText, 2000);
+      });
+    });
+
+    document.querySelectorAll('.rename-hist').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.dataset.id;
+        const oldTitle = e.target.dataset.title;
+        const newTitle = prompt("Nouveau nom pour la vidéo :", oldTitle);
+        
+        if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
+          try {
+            await fetch(`/api/video/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: newTitle.trim() })
+            });
+            loadHistory();
+          } catch (err) {
+            alert("Erreur lors du renommage.");
+          }
+        }
       });
     });
 

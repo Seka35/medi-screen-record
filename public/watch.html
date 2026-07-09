@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch - Media Screen Recorder</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="watch-mode">
+  <div class="glass-container player-container">
+    <video id="player" controls playsinline></video>
+  </div>
+
+  <script>
+    // Get the video ID from the URL
+    const pathParts = window.location.pathname.split('/');
+    const videoId = pathParts[pathParts.length - 1];
+    
+    // Set the video source to the streaming endpoint
+    const player = document.getElementById('player');
+    player.src = `/api/video/${videoId}`;
+  </script>
+</body>
+</html>
